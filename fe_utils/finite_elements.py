@@ -189,4 +189,4 @@ class LagrangeElement(FiniteElement):
         # have obtained nodes, the following line will call the
         # __init__ method on the FiniteElement class to set up the
         # basis coefficients.
-        super(LagrangeElement, self).__init__(cell, degree, lagrange_points(self.cell,degree))
+        super(LagrangeElement, self).__init__(cell, degree, lagrange_points(cell,degree))
