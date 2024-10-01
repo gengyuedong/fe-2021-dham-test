@@ -43,6 +43,10 @@ class QuadratureRule(object):
         The implementation of this method is left as an :ref:`exercise
         <ex-integrate>`.
         """
+  
+  
+   
+        return np.sum(np.dot(self.weights,np.array([function(x) for x in self.points])))
 
         raise NotImplementedError
 
