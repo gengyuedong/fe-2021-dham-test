@@ -54,30 +54,53 @@ def vandermonde_matrix(cell, degree, points, grad=False):
     <ex-vandermonde>`.
     """
     points = np.array(points)
-    # print(points)
-    # print(degree)
-    if cell.dim == 1:
-        result = np.zeros((len(points),degree+1))
+    if grad == False:
+        
+        # print(points)
+        # print(degree)
+        if cell.dim == 1:
+            result = np.zeros((len(points),degree+1))
 
-        for j in range(degree+1):
-            result[:,j] = points[:,0] ** j
-        return result 
-    
-    elif cell.dim == 2:
-        num_terms = (degree + 1) * (degree + 2) // 2 
-        result = np.zeros((len(points),num_terms))
-        # print(points, result)
-        col = 0
-        for n in range(degree + 1):
-            for m in range(n + 1):
-                result[:,col] = (points[:,0] ** (n-m)) * points[:,1]**m
-                col += 1
+            for j in range(degree+1):
+                result[:,j] = points[:,0] ** j
+            return result 
+        
+        elif cell.dim == 2:
+            num_terms = (degree + 1) * (degree + 2) // 2 
+            result = np.zeros((len(points),num_terms))
+            # print(points, result)
+            col = 0
+            for n in range(degree + 1):
+                for m in range(n + 1):
+                    result[:,col] = (points[:,0] ** (n-m)) * points[:,1]**m
+                    col += 1
 
-        return result
+            return result
+        else:
+            raise NotImplementedError
     else:
-        raise NotImplementedError
-
-
+        if cell.dim == 1:
+            result = np.zeros((len(points),degree+1,1))
+            for j in range(degree + 1):
+                print(1)
+                if j == 0:
+                    result[:, j, 0] = 0  # Derivative of constant term is 0
+                else:
+                    result[:, j, 0] = j * points[:, 0] ** (j - 1)
+            return result
+        elif cell.dim == 2:
+            num_terms = (degree + 1) * (degree + 2) // 2 
+            result = np.zeros((len(points),num_terms,2))
+            col = 0 
+            for n in range(degree + 1):
+                for m in range(n+1):
+                    # print(1)
+                    result[:,col,0] = (n - m) * (points[:, 0] ** (n - m - 1)) * (points[:, 1] ** m) if (n - m) > 0 else 0
+                    result[:,col,1] = m * (points[:, 0] ** (n - m)) * (points[:, 1] ** (m - 1)) if m > 0 else 0
+                    col+=1
+            return result
+        else:
+            raise NotImplementedError
 class FiniteElement(object):
     def __init__(self, cell, degree, nodes, entity_nodes=None):
         """A finite element defined over cell.
@@ -144,7 +167,13 @@ class FiniteElement(object):
         <ex-tabulate>`.
 
         """
-
+        if grad == False:
+            V = vandermonde_matrix(self.cell,self.degree,points)
+            return V @ self.basis_coefs
+        else:
+            V = vandermonde_matrix(self.cell,self.degree,points,grad=True)
+            return np.einsum('ijk,jl->ilk', V, self.basis_coefs)
+        
         raise NotImplementedError
 
     def interpolate(self, fn):
@@ -161,8 +190,24 @@ class FiniteElement(object):
         <ex-interpolate>`.
 
         """
-
-        raise NotImplementedError
+        # Check the dimensionality of the element
+        if self.nodes.shape[1] == 1:  # 1D case
+            fn_vals = np.zeros(len(self.nodes))  # Initialize 1D array for function values
+            
+            # Loop over the 1D nodes and evaluate fn at each node
+            for i, node in enumerate(self.nodes):
+                fn_vals[i] = fn(node[0])  # Node is a scalar in 1D (use node[0] to get the scalar)
+            return fn_vals
+        elif self.nodes.shape[1] == 2:  # 2D case
+            fn_vals = np.zeros(len(self.nodes))  # Initialize 1D array for function values
+            
+            # Loop over the 2D nodes and evaluate fn at each node
+            for i, node in enumerate(self.nodes):
+                fn_vals[i] = fn(node)  # Node is a vector in 2D (e.g., [x, y])
+            return fn_vals
+        else:
+            raise NotImplementedError("Interpolation for higher dimensions is not yet implemented.")
+        #raise NotImplementedError
 
     def __repr__(self):
         return "%s(%s, %s)" % (self.__class__.__name__,

@@ -8,43 +8,55 @@ from matplotlib import cm
 import numpy as np
 from math import *
 
-parser = ArgumentParser(description="""Plot a function interpolated onto the reference element.""")
-parser.add_argument("function", type=str, nargs=1,
+# Argument parser
+parser = ArgumentParser(description="Plot a function interpolated onto the reference element.")
+parser.add_argument("function", type=str,
                     help='An expression in the coordinate vector x. The function should be a quoted string. E.g. "sin(x[0])".')
-parser.add_argument("dimension", type=int, nargs=1, choices=(1, 2),
-                    help="Dimension of reference cell.")
-parser.add_argument("degree", type=int, nargs=1,
+parser.add_argument("dimension", type=int, choices=(1, 2),
+                    help="Dimension of reference cell (1 for interval, 2 for triangle).")
+parser.add_argument("degree", type=int,
                     help="Degree of basis functions.")
-if __name__=="__main__":
+
+if __name__ == "__main__":
     args = parser.parse_args()
-    dim = args.dimension[0]
-    degree = args.degree[0]
-    fn = eval('lambda x: ' + args.function[0])
+    dim = args.dimension
+    degree = args.degree
+    # Safe lambda function construction
+    fn = eval('lambda x: ' + args.function)  # Be careful with eval, use only trusted input
 
-    cells = (None, ReferenceInterval, ReferenceTriangle)
+    # Reference cells: None for 0D, ReferenceInterval for 1D, ReferenceTriangle for 2D
+    reference_cells = (None, ReferenceInterval, ReferenceTriangle)
+    
+    # Create Lagrange finite element
+    fe = LagrangeElement(reference_cells[dim], degree)
 
-    fe = LagrangeElement(cells[dim], degree)
+    # Interpolate function values at the nodes
     coefs = fe.interpolate(fn)
 
+    # 1D case
     if dim == 1:
-        x = np.linspace(0, 1, 100)
-        x.shape = (100, 1)
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
+        x = np.linspace(0, 1, 100).reshape(-1, 1)  # Shape x as (100, 1)
+        fig, ax = plt.subplots()
+        
+        # Tabulate the basis functions at points in the interval
         y = fe.tabulate(x)
-
+        
+        # Plot each basis function multiplied by its coefficient
         for c, y_ in zip(coefs, y.T):
-            plt.plot(x, c * y_, "--")
-        plt.plot(x, np.dot(y, coefs), 'k')
+            ax.plot(x, c * y_, "--")
 
-    if dim == 2:
-        x = lagrange_points(ReferenceTriangle, 20)
-        z = fe.tabulate(x)
+        # Plot the interpolated function
+        ax.plot(x, np.dot(y, coefs), 'k')
+
+    # 2D case
+    elif dim == 2:
+        x = lagrange_points(reference_cells[dim], 20)  # Generate Lagrange points
+        z = fe.tabulate(x)  # Tabulate basis functions at these points
 
         fig = plt.figure()
-        ax = fig.gca(projection='3d')
+        ax = fig.add_subplot(111, projection='3d')  # Updated method for 3D plotting
 
+        # Plot the interpolated surface using trisurf
         ax.plot_trisurf(x[:, 0], x[:, 1], np.dot(z, coefs), cmap=cm.RdBu, linewidth=0)
 
     plt.show()
